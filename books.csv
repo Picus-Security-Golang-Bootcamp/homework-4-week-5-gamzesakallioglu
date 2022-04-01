@@ -1,0 +1,9 @@
+id,name,totalPage,totalStock,price,stockCode,ISBN,AuthorName,AuthorId
+1,Ward Number Six,68,40,10,0001A,AC0001,Anton Pavloviç Çehov,1
+2,Lord of The Rings: The Fellowship of the Ring,479,30,30,0002B,JT0001,J.R.R Tolkien,2
+3,Lord of The Rings: The Two Towers,415,15,30,0004B,JT0002,J.R.R Tolkien,2
+4,Lord of The Rings: The Return of the King,347,10,30,0002R,JT0003,J.R.R Tolkien,2
+5,The Great Gatsby,208,40,30,0001B,FS0001,F. Scott Fitzgerald,9
+6,Emma,335,20,40,0004J,JA0001,Jane Auesten,5
+7,Marting Eden,332,20,30,0006V,JL0001,Jack London,4
+8,Hep O Şarkı,268,20,20,0007M,YK0001,Yakup Kadri Karaosmanoğlu,6

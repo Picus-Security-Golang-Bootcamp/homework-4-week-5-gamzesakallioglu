@@ -2,18 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"time"
 
 	postgres "github.com/gamze.sakallioglu/learningGo/homework-4-week-5-gamzesakallioglu/common/db"
 	csv_operations "github.com/gamze.sakallioglu/learningGo/homework-4-week-5-gamzesakallioglu/csv"
-	"github.com/gamze.sakallioglu/learningGo/homework-4-week-5-gamzesakallioglu/domain/entities"
+	custom_handlers "github.com/gamze.sakallioglu/learningGo/homework-4-week-5-gamzesakallioglu/domain/handlers"
 	repo "github.com/gamze.sakallioglu/learningGo/homework-4-week-5-gamzesakallioglu/domain/repositories"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -139,221 +137,45 @@ func main() {
 	authorRepo.Migrations()
 	authorRepo.InsertDatas(authorList)
 
+	author_handler := custom_handlers.AuthorHandler{}
+	author_handler.NewAuthorHandler(*authorRepo)
+
+	book_handler := custom_handlers.BookHandler{}
+	book_handler.NewBookHandler(*bookRepo)
+
 	// API - Books
 
 	// Get - for list all the books with author
-	app.Router.HandleFunc("/books", BooksHandler(bookRepo))
+	app.Router.HandleFunc("/books", book_handler.BooksHandler())
 
 	// Get - for search by the name
-	app.Router.PathPrefix("/books").Subrouter().HandleFunc("/{name}", BookNameHandler(bookRepo))
+	app.Router.PathPrefix("/books").Subrouter().HandleFunc("/{name}", book_handler.BookNameHandler())
 
 	// Get - for search by id
-	app.Router.PathPrefix("/books").Subrouter().HandleFunc("/{id}", BookIdHandler(bookRepo))
+	app.Router.PathPrefix("/books").Subrouter().HandleFunc("/{id}", book_handler.BookIdHandler())
 
 	// Patch - for buy given amount of book with given id
-	app.Router.PathPrefix("/books/buy").Subrouter().HandleFunc("/{id}/{quantitiy}", BookBuyHandler(bookRepo)).Methods(http.MethodPatch)
+	app.Router.PathPrefix("/books/buy").Subrouter().HandleFunc("/{id}/{quantitiy}", book_handler.BookBuyHandler()).Methods(http.MethodPatch)
 
 	// Post - for create a new book
-	app.Router.PathPrefix("/books").Subrouter().HandleFunc("/", BookCreateHandler(bookRepo)).Methods(http.MethodPost)
+	app.Router.PathPrefix("/books").Subrouter().HandleFunc("/", book_handler.BookCreateHandler()).Methods(http.MethodPost)
 	// Books
 
 	// API - Authors
 
 	// Get - for list all the authors with books they published
-	app.Router.HandleFunc("/authors", AuthorsHandler(authorRepo))
+	app.Router.HandleFunc("/authors", author_handler.AuthorsHandler())
 
 	// Get - for search by id
-	app.Router.PathPrefix("/authors").Subrouter().HandleFunc("/{id}", AuthorIdHandler(authorRepo))
+	app.Router.PathPrefix("/authors").Subrouter().HandleFunc("/{id}", author_handler.AuthorIdHandler())
 
 	// Post - for create a new author
-	app.Router.PathPrefix("/authors").Subrouter().HandleFunc("/", AuthorCreateHandler(authorRepo)).Methods(http.MethodPost)
+	app.Router.PathPrefix("/authors").Subrouter().HandleFunc("/", author_handler.AuthorCreateHandler()).Methods(http.MethodPost)
 	// Authors
 
 	// Run the app
 	app.Run("8090")
 
-}
-
-func BookCreateHandler(bookRepo *repo.BookRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var book entities.Book
-
-		if r.Header.Get("Content-Type") != "application/json" {
-			w.Write([]byte("Only json format is accepted"))
-			return
-		}
-
-		err := json.NewDecoder(r.Body).Decode(&book)
-		if err != nil {
-			w.Write([]byte("400: Bad Request"))
-			return
-		}
-
-		err = bookRepo.InsertOneData(book)
-		if err != nil {
-			w.Write([]byte("Data cannot inserted:("))
-			return
-		}
-
-		bookData, err := json.Marshal(book)
-		if err != nil {
-			w.Write([]byte("400: Bad Request"))
-			return
-		}
-		w.Write(bookData)
-	}
-}
-
-func AuthorCreateHandler(authorRepo *repo.AuthorRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var author entities.Author
-
-		if r.Header.Get("Content-Type") != "application/json" {
-			w.Write([]byte("Only json format is accepted"))
-			return
-		}
-
-		err := json.NewDecoder(r.Body).Decode(&author)
-		if err != nil {
-			w.Write([]byte("400: Bad Request"))
-			return
-		}
-
-		err = authorRepo.InsertOneData(author)
-		if err != nil {
-			w.Write([]byte("Data cannot inserted:("))
-			return
-		}
-
-		bookData, err := json.Marshal(author)
-		if err != nil {
-			w.Write([]byte("400: Bad Request"))
-			return
-		}
-		w.Write(bookData)
-	}
-}
-
-func BookIdHandler(bookRepo *repo.BookRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		//r.URL.Query().Get("param")
-		w.WriteHeader(http.StatusOK)
-		w.Header().Add("Content-Type", "application/json")
-		id, _ := strconv.Atoi(vars["id"])
-		book, err := bookRepo.GetById(uint(id))
-		if err != nil {
-			log.Fatal(err)
-		}
-		d := ApiResponse{
-			Data: book,
-		}
-
-		resp, _ := json.Marshal(d)
-		w.Write(resp)
-	}
-}
-
-func BookBuyHandler(bookRepo *repo.BookRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		//r.URL.Query().Get("param")
-		w.WriteHeader(http.StatusOK)
-		w.Header().Add("Content-Type", "application/json")
-		id, _ := strconv.Atoi(vars["id"])
-		quantity, _ := strconv.Atoi(vars["quantitiy"])
-		message, err := bookRepo.BuyBook(uint(id), quantity)
-		if err != nil {
-			log.Fatal(err)
-		}
-		d := ApiResponse{
-			Data: message,
-		}
-
-		resp, _ := json.Marshal(d)
-		w.Write(resp)
-	}
-}
-
-func BookNameHandler(bookRepo *repo.BookRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		//r.URL.Query().Get("param")
-		w.WriteHeader(http.StatusOK)
-		w.Header().Add("Content-Type", "application/json")
-		books, err := bookRepo.FindByName(vars["name"])
-		if err != nil {
-			log.Fatal(err)
-		}
-		d := ApiResponse{
-			Data: books,
-		}
-
-		resp, _ := json.Marshal(d)
-		w.Write(resp)
-	}
-
-}
-
-func AuthorIdHandler(authorRepo *repo.AuthorRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		//r.URL.Query().Get("param")
-		w.WriteHeader(http.StatusOK)
-		w.Header().Add("Content-Type", "application/json")
-		id, _ := strconv.Atoi(vars["id"])
-		book, err := authorRepo.GetById(uint(id))
-		if err != nil {
-			log.Fatal(err)
-		}
-		d := ApiResponse{
-			Data: book,
-		}
-
-		resp, _ := json.Marshal(d)
-		w.Write(resp)
-	}
-
-}
-
-func BooksHandler(bookRepo *repo.BookRepository) http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Add("Content-Type", "application/json")
-
-		books, err := bookRepo.GetBooksWithAuthor()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		d := ApiResponse{
-			Data: books,
-		}
-
-		resp, _ := json.Marshal(d)
-		w.Write(resp)
-	}
-}
-
-func AuthorsHandler(authorRepo *repo.AuthorRepository) http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Add("Content-Type", "application/json")
-
-		books, err := authorRepo.GetAuthorsWithBook()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		d := ApiResponse{
-			Data: books,
-		}
-
-		resp, _ := json.Marshal(d)
-		w.Write(resp)
-	}
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
